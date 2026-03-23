@@ -2,13 +2,15 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User } from '@/types'
 import * as authApi from '@/api/auth'
+import { DEMO_USER } from '@/demo/mockData'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(localStorage.getItem('auth_token'))
   const loading = ref(false)
+  const isDemo = ref(localStorage.getItem('demo_mode') === '1')
 
-  const isAuthenticated = computed(() => !!token.value)
+  const isAuthenticated = computed(() => !!token.value || isDemo.value)
 
   function setToken(newToken: string | null) {
     token.value = newToken
@@ -30,14 +32,23 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function loginDemo() {
+    isDemo.value = true
+    localStorage.setItem('demo_mode', '1')
+    user.value = DEMO_USER
+    setToken('demo-token')
+  }
+
   async function logout() {
     try {
-      await authApi.logout()
+      if (!isDemo.value) await authApi.logout()
     } catch {
       // Ignore logout errors
     } finally {
       setToken(null)
       user.value = null
+      isDemo.value = false
+      localStorage.removeItem('demo_mode')
     }
   }
 
@@ -57,7 +68,9 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     loading,
     isAuthenticated,
+    isDemo,
     login,
+    loginDemo,
     logout,
     fetchUser,
   }

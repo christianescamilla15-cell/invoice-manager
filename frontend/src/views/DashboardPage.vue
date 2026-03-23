@@ -136,6 +136,7 @@ import { useAuthStore } from '@/stores/auth'
 import * as dashboardApi from '@/api/dashboard'
 import * as invoicesApi from '@/api/invoices'
 import type { DashboardKpis, Invoice } from '@/types'
+import { DEMO_KPIS, DEMO_INVOICES } from '@/demo/mockData'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -188,6 +189,16 @@ const kpiCards = computed(() => {
 })
 
 onMounted(async () => {
+  if (authStore.isDemo) {
+    kpis.value = DEMO_KPIS
+    recentInvoices.value = DEMO_INVOICES.slice(0, 10)
+    overdueInvoices.value = DEMO_INVOICES.filter(i => i.status === 'overdue')
+    loadingKpis.value = false
+    loadingInvoices.value = false
+    loadingOverdue.value = false
+    return
+  }
+
   await authStore.fetchUser()
 
   dashboardApi.getKpis().then(({ data }) => {
