@@ -165,6 +165,7 @@ import { useRouter, useRoute, RouterLink } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import StatusBadge from '@/components/shared/StatusBadge.vue'
 import { useInvoicesStore } from '@/stores/invoices'
+import { useAuthStore } from '@/stores/auth'
 import { downloadPdf } from '@/api/invoices'
 import type { Invoice } from '@/types'
 
@@ -200,8 +201,23 @@ async function handleStatusChange(status: string) {
   }
 }
 
+function generateDemoPdf(inv: Invoice) {
+  const fmt = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n)
+  const itemsRows = inv.items.map(it =>
+    `<tr><td style="padding:8px;border-bottom:1px solid #eee">${it.description}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${it.quantity}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${fmt(it.unit_price)}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${fmt(it.amount)}</td></tr>`
+  ).join('')
+  const html = `<html><head><style>body{font-family:Arial,sans-serif;margin:40px;color:#333}h1{color:#4338ca;margin:0}table{width:100%;border-collapse:collapse;margin:20px 0}th{background:#f3f4f6;padding:10px 8px;text-align:left;font-size:13px}td{font-size:13px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;border-bottom:3px solid #4338ca;padding-bottom:20px}.totals{margin-left:auto;width:300px}.totals td{padding:6px 8px}.totals .total{font-weight:bold;font-size:16px;color:#4338ca;border-top:2px solid #4338ca}</style></head><body><div class="header"><div><h1>FACTURA</h1><p style="color:#666;margin:4px 0">${inv.invoice_number}</p><p style="color:#666;margin:4px 0">Fecha: ${inv.issued_at} | Vence: ${inv.due_at}</p><p style="margin:4px 0"><strong>Estado:</strong> ${inv.status_label}</p></div><div style="text-align:right"><p style="font-weight:bold;font-size:16px;margin:0">Invoice Manager</p><p style="color:#666;margin:4px 0">RFC: IMG260323XX1</p><p style="color:#666;margin:4px 0">CDMX, Mexico</p></div></div><div style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:20px"><p style="margin:0 0 4px;font-weight:bold">Proveedor</p><p style="margin:2px 0">${inv.vendor?.business_name ?? 'N/A'}</p><p style="margin:2px 0;color:#666">RFC: ${inv.vendor?.rfc ?? 'N/A'} | ${inv.vendor?.city ?? ''}, ${inv.vendor?.state ?? ''}</p></div><table><thead><tr><th>Descripcion</th><th style="text-align:center">Cantidad</th><th style="text-align:right">P. Unitario</th><th style="text-align:right">Importe</th></tr></thead><tbody>${itemsRows}</tbody></table><table class="totals"><tr><td>Subtotal</td><td style="text-align:right">${fmt(inv.subtotal)}</td></tr><tr><td>IVA</td><td style="text-align:right">${fmt(inv.tax_amount)}</td></tr>${inv.retention_amount > 0 ? `<tr><td>Retencion ISR</td><td style="text-align:right">-${fmt(inv.retention_amount)}</td></tr>` : ''}<tr class="total"><td>TOTAL</td><td style="text-align:right">${fmt(inv.total)}</td></tr></table>${inv.notes ? `<p style="margin-top:20px;color:#666"><strong>Notas:</strong> ${inv.notes}</p>` : ''}<p style="margin-top:40px;text-align:center;color:#999;font-size:11px">Documento generado por Invoice Manager — Demo</p></body></html>`
+  const win = window.open('', '_blank')
+  if (win) { win.document.write(html); win.document.close(); win.print() }
+}
+
 async function handleDownloadPdf() {
   if (!invoice.value) return
+  const auth = useAuthStore()
+  if (auth.isDemo) {
+    generateDemoPdf(invoice.value)
+    return
+  }
   downloadingPdf.value = true
   try {
     await downloadPdf(invoice.value.id)
